@@ -13,8 +13,7 @@ SCREENSHOT_SENDER = "robot@friend.dk"
 
 # Constant/Credential names
 ERROR_EMAIL = "Error Email"
-SAP_LOGIN = "Mathias SAP"
-GRAPH_CREDS = "Graph API"
+GRAPH_API = "Graph API"
 KMD_LOGIN = "Mathias KMD"
 
 QUEUE_NAME = "Journalisering af indkomne anmodninger om refusion gruppe 2"
