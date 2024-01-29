@@ -13,15 +13,8 @@ SCREENSHOT_SENDER = "robot@friend.dk"
 
 # Constant/Credential names
 ERROR_EMAIL = "Error Email"
+SAP_LOGIN = "Mathias SAP"
+GRAPH_CREDS = "Graph API"
+KMD_LOGIN = "Mathias KMD"
 
-
-# Queue specific configs
-# ----------------------
-
-# The name of the job queue (if any)
-QUEUE_NAME = None
-
-# The limit on how many queue elements to process
-MAX_TASK_COUNT = 100
-
-# ----------------------
+QUEUE_NAME = "Journalisering af indkomne anmodninger om refusion gruppe 2"
