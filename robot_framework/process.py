@@ -239,7 +239,7 @@ def send_status_mail(journal_count: int, orchestrator_connection: OrchestratorCo
     msg['from'] = config.STATUS_SENDER
     msg['subject'] = f"Status på Journalisering af refusionsanmodninger {datetime.now().date()}"
 
-    msg.set_content(f"Antal anmodninger journaliseret i dagens kørsel: {journal_count}.\n\nVenlig hilsen\nRobotten")
+    msg.set_content(f"Antal anmodninger journaliseret i dagens kørsel: {journal_count}\n\nVenlig hilsen\nRobotten")
 
     # Send message
     with smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT) as smtp:
