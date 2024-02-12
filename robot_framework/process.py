@@ -9,6 +9,7 @@ import smtplib
 from email.message import EmailMessage
 
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
+from OpenOrchestrator.database.queues import QueueStatus
 from itk_dev_shared_components.graph import authentication as graph_authentication
 from itk_dev_shared_components.graph.authentication import GraphAccess
 from itk_dev_shared_components.graph import mail as graph_mail
@@ -40,10 +41,9 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
     for email in email_list:
         cpr, faktura_numbers = get_info_from_email(email)
 
-        case = find_or_create_case(cpr, nova_access)
+        queue_element = orchestrator_connection.create_queue_element(config.QUEUE_NAME, reference=f"{cpr} - {faktura_numbers}", created_by="Robot")
 
-        if not case:
-            continue
+        case = find_or_create_case(cpr, nova_access)
 
         document_name = f"Ansøgning om refusion [{', '.join(faktura_numbers)}]"
 
@@ -54,6 +54,8 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
         graph_mail.move_email(email, config.MAIL_DESTINATION_FOLDER, graph_access)
 
         journalized_emails.append(email)
+
+        orchestrator_connection.set_queue_element_status(queue_element.id, QueueStatus.DONE)
 
     send_status_mail(len(journalized_emails), orchestrator_connection)
 
