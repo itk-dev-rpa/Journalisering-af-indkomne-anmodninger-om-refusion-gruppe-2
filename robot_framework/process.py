@@ -64,7 +64,7 @@ def get_emails(graph_access: GraphAccess) -> list[Email]:
     """Get all emails to be handled by the robot.
 
     Args:
-        orchestrator_connection: The connection to Orchestrator.
+        graph_access: The GraphAccess object used to authenticate against Graph.
 
     Returns:
         A filtered list of email objects to be handled.
@@ -206,8 +206,14 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             task = t
             break
 
-    # If none found create a new one
-    if not task:
+    if task:
+        # If a task already exists and its deadline is later than
+        # the new deadline, update it
+        if task.deadline.date() > deadline.date():
+            task.deadline = deadline
+            nova_tasks.update_task(task, case.uuid, nova_access)
+    else:
+        # If none found create a new one
         task = Task(
             uuid=str(uuid.uuid4()),
             title="Ny ansøgning",
@@ -216,13 +222,6 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             deadline=deadline
         )
         nova_tasks.attach_task_to_case(case.uuid, task, nova_access)
-        return
-
-    # If a task already exists and its deadline is later than
-    # the new deadline, update it
-    if task.deadline.date() > deadline.date():
-        task.deadline = deadline
-        nova_tasks.update_task(task, case.uuid, nova_access)
 
 
 def send_status_mail(journal_count: int, orchestrator_connection: OrchestratorConnection) -> None:
