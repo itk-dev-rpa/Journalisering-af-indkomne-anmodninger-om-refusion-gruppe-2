@@ -13,15 +13,13 @@ SCREENSHOT_SENDER = "robot@friend.dk"
 
 # Constant/Credential names
 ERROR_EMAIL = "Error Email"
+GRAPH_API = "Graph API"
+NOVA_API = "Nova API"
 
+QUEUE_NAME = "Journalisering af indkomne anmodninger om refusion gruppe 2"
 
-# Queue specific configs
-# ----------------------
-
-# The name of the job queue (if any)
-QUEUE_NAME = None
-
-# The limit on how many queue elements to process
-MAX_TASK_COUNT = 100
-
-# ----------------------
+# Other
+CASE_WORKER_UUID = 'c38ccf61-c879-46e5-92c6-c0abf737d076'
+MAIL_SOURCE_FOLDER = "Refusioner"
+MAIL_DESTINATION_FOLDER = "Refusioner/Journaliserede ansøgninger"
+STATUS_SENDER = "itk-rpa@mkb.aarhus.dk"
