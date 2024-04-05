@@ -41,7 +41,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
     for email in email_list:
         cpr, faktura_numbers = get_info_from_email(email)
 
-        queue_element = orchestrator_connection.create_queue_element(config.QUEUE_NAME, reference=f"{cpr} - {faktura_numbers}", created_by="Robot")
+        queue_element = orchestrator_connection.create_queue_element(config.QUEUE_NAME, reference=f"{cpr}", data=f"{faktura_numbers}", created_by="Robot")
 
         case = find_or_create_case(cpr, nova_access)
 
