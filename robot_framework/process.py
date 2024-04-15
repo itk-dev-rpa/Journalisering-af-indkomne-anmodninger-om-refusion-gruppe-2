@@ -15,7 +15,7 @@ from itk_dev_shared_components.graph.authentication import GraphAccess
 from itk_dev_shared_components.graph import mail as graph_mail
 from itk_dev_shared_components.graph.mail import Email
 from itk_dev_shared_components.kmd_nova.authentication import NovaAccess
-from itk_dev_shared_components.kmd_nova.nova_objects import NovaCase, Document, CaseParty, Task
+from itk_dev_shared_components.kmd_nova.nova_objects import NovaCase, Document, CaseParty, Task, Caseworker, Department
 from itk_dev_shared_components.kmd_nova import nova_cases, nova_documents, nova_tasks
 from itk_dev_shared_components.kmd_nova import cpr as nova_cpr
 
@@ -30,6 +30,8 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
     """
     orchestrator_connection.log_trace("Running process.")
 
+    caseworker, department, receivers = unpack_arguments(orchestrator_connection)
+
     graph_creds = orchestrator_connection.get_credential(config.GRAPH_API)
     graph_access = graph_authentication.authorize_by_username_password(graph_creds.username, **json.loads(graph_creds.password))
 
@@ -43,11 +45,11 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
 
         queue_element = orchestrator_connection.create_queue_element(config.QUEUE_NAME, reference=f"{cpr}", data=f"{faktura_numbers}", created_by="Robot")
 
-        case = find_or_create_case(cpr, nova_access)
+        case = find_or_create_case(cpr, nova_access, caseworker, department)
 
         document_name = f"Ansøgning om refusion [{', '.join(faktura_numbers)}]"
 
-        attach_email_to_case(document_name, email, case, graph_access, nova_access)
+        attach_email_to_case(document_name, email, case, caseworker, graph_access, nova_access)
 
         update_or_create_task(case, nova_access)
 
@@ -57,7 +59,24 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
 
         orchestrator_connection.set_queue_element_status(queue_element.id, QueueStatus.DONE)
 
-    send_status_mail(len(journalized_emails), orchestrator_connection)
+    send_status_mail(len(journalized_emails), receivers, orchestrator_connection)
+
+
+def unpack_arguments(orchestrator_connection: OrchestratorConnection) -> tuple[Caseworker, Department, list[str]]:
+    """Unpack the caseworker, department and email receivers given in the OpenOrchestrator arguments.
+
+    Args:
+        orchestrator_connection: The connection to OpenOrchestrator.
+
+    Returns:
+        A caseworker and department objects and a list of email receivers to be used in the process.
+    """
+    obj = json.loads(orchestrator_connection.process_arguments)
+    caseworker = Caseworker(**obj["caseworker"])
+    department = Department(**obj["department"])
+    receivers = obj["receivers"]
+
+    return caseworker, department, receivers
 
 
 def get_emails(graph_access: GraphAccess) -> list[Email]:
@@ -105,7 +124,7 @@ def get_info_from_email(email: Email) -> tuple[str, list[str]]:
     return cpr, faktura_numbers
 
 
-def find_or_create_case(cpr: str, nova_access: NovaAccess) -> NovaCase:
+def find_or_create_case(cpr: str, nova_access: NovaAccess, caseworker: Caseworker, department: Department) -> NovaCase:
     """Find a case with the correct title and kle number on the given cpr.
     If no case exists a new one is created instead.
 
@@ -154,13 +173,16 @@ def find_or_create_case(cpr: str, nova_access: NovaAccess) -> NovaCase:
         case_parties=[case_party],
         kle_number="29.03.00",
         proceeding_facet="G01",
-        sensitivity="Følsomme"
+        sensitivity="Følsomme",
+        caseworker=caseworker,
+        responsible_department=department,
+        security_unit=department
     )
     nova_cases.add_case(case, nova_access)
     return case
 
 
-def attach_email_to_case(document_name: str, email: Email, case: NovaCase, graph_access: GraphAccess, nova_access: NovaAccess):
+def attach_email_to_case(document_name: str, email: Email, case: NovaCase, caseworker: Caseworker, graph_access: GraphAccess, nova_access: NovaAccess):
     """Upload the email file to Nova as a document.
 
     Args:
@@ -181,6 +203,7 @@ def attach_email_to_case(document_name: str, email: Email, case: NovaCase, graph
         document_date=email.received_time,
         approved=True,
         description="Automatisk journaliseret af robot.",
+        caseworker=caseworker
     )
 
     nova_documents.attach_document_to_case(case.uuid, doc, nova_access)
@@ -213,26 +236,29 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             task.deadline = deadline
             nova_tasks.update_task(task, case.uuid, nova_access)
     else:
-        # If none found create a new one
+        # If no task is found create a new one.
+        # When creating tasks we don't need to provide the name and ident.
+        caseworker = Caseworker(uuid=config.CASE_WORKER_UUID, name=None, ident=None)
+
         task = Task(
             uuid=str(uuid.uuid4()),
             title="Ny ansøgning",
-            case_worker_uuid=config.CASE_WORKER_UUID,
+            caseworker=caseworker,
             status_code='N',
             deadline=deadline
         )
         nova_tasks.attach_task_to_case(case.uuid, task, nova_access)
 
 
-def send_status_mail(journal_count: int, orchestrator_connection: OrchestratorConnection) -> None:
+def send_status_mail(journal_count: int, receivers: list[str], orchestrator_connection: OrchestratorConnection) -> None:
     """Send an email to the case workers with the total number of emails journalized performed.
-    The receivers is defined as a comma separated list in the robot arguments.
+    The receivers is defined as a json list in the robot arguments.
 
     Args:
         journal_count: The number of emails journalized.
         orchestrator_connection: The connection to OpenOrchestrator.
     """
-    receivers = orchestrator_connection.process_arguments.split(",")
+    orchestrator_connection.log_info(f"Sending status to: {receivers}")
 
     # Create message
     msg = EmailMessage()
@@ -251,5 +277,5 @@ def send_status_mail(journal_count: int, orchestrator_connection: OrchestratorCo
 if __name__ == '__main__':
     conn_string = os.getenv("OpenOrchestratorConnString")
     crypto_key = os.getenv("OpenOrchestratorKey")
-    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, "ghbm@aarhus.dk")
+    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '')
     process([], oc)
