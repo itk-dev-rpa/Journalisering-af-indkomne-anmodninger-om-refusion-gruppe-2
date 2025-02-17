@@ -4,7 +4,7 @@ import os
 import json
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 import smtplib
 from email.message import EmailMessage
 
@@ -272,5 +272,5 @@ def send_status_mail(journal_count: int, receivers: list[str], orchestrator_conn
 if __name__ == '__main__':
     conn_string = os.getenv("OpenOrchestratorConnString")
     crypto_key = os.getenv("OpenOrchestratorKey")
-    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '')
+    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '{"receivers": []}')
     process([], oc)
