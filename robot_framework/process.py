@@ -4,7 +4,7 @@ import os
 import json
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 import smtplib
 from email.message import EmailMessage
 
@@ -15,7 +15,7 @@ from itk_dev_shared_components.graph.authentication import GraphAccess
 from itk_dev_shared_components.graph import mail as graph_mail
 from itk_dev_shared_components.graph.mail import Email
 from itk_dev_shared_components.kmd_nova.authentication import NovaAccess
-from itk_dev_shared_components.kmd_nova.nova_objects import NovaCase, Document, CaseParty, Task, Caseworker, Department
+from itk_dev_shared_components.kmd_nova.nova_objects import NovaCase, Document, CaseParty, Task
 from itk_dev_shared_components.kmd_nova import nova_cases, nova_documents, nova_tasks
 from itk_dev_shared_components.kmd_nova import cpr as nova_cpr
 
@@ -30,7 +30,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
     """
     orchestrator_connection.log_trace("Running process.")
 
-    caseworker, department, receivers = unpack_arguments(orchestrator_connection)
+    receivers = unpack_arguments(orchestrator_connection)
 
     graph_creds = orchestrator_connection.get_credential(config.GRAPH_API)
     graph_access = graph_authentication.authorize_by_username_password(graph_creds.username, **json.loads(graph_creds.password))
@@ -45,11 +45,11 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
 
         queue_element = orchestrator_connection.create_queue_element(config.QUEUE_NAME, reference=f"{cpr}", data=f"{faktura_numbers}", created_by="Robot")
 
-        case = find_or_create_case(cpr, nova_access, caseworker, department)
+        case = find_or_create_case(cpr, nova_access)
 
         document_name = f"Ansøgning om refusion [{', '.join(faktura_numbers)}]"
 
-        attach_email_to_case(document_name, email, case, caseworker, graph_access, nova_access)
+        attach_email_to_case(document_name, email, case, graph_access, nova_access)
 
         update_or_create_task(case, nova_access)
 
@@ -62,21 +62,19 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
     send_status_mail(len(journalized_emails), receivers, orchestrator_connection)
 
 
-def unpack_arguments(orchestrator_connection: OrchestratorConnection) -> tuple[Caseworker, Department, list[str]]:
-    """Unpack the caseworker, department and email receivers given in the OpenOrchestrator arguments.
+def unpack_arguments(orchestrator_connection: OrchestratorConnection) -> list[str]:
+    """Unpack the email receivers given in the OpenOrchestrator arguments.
 
     Args:
         orchestrator_connection: The connection to OpenOrchestrator.
 
     Returns:
-        A caseworker and department objects and a list of email receivers to be used in the process.
+        A list of email receivers to be used in the process.
     """
     obj = json.loads(orchestrator_connection.process_arguments)
-    caseworker = Caseworker(**obj["caseworker"])
-    department = Department(**obj["department"])
     receivers = obj["receivers"]
 
-    return caseworker, department, receivers
+    return receivers
 
 
 def get_emails(graph_access: GraphAccess) -> list[Email]:
@@ -124,7 +122,7 @@ def get_info_from_email(email: Email) -> tuple[str, list[str]]:
     return cpr, faktura_numbers
 
 
-def find_or_create_case(cpr: str, nova_access: NovaAccess, caseworker: Caseworker, department: Department) -> NovaCase:
+def find_or_create_case(cpr: str, nova_access: NovaAccess) -> NovaCase:
     """Find a case with the correct title and kle number on the given cpr.
     If no case exists a new one is created instead.
 
@@ -139,7 +137,7 @@ def find_or_create_case(cpr: str, nova_access: NovaAccess, caseworker: Caseworke
 
     # If a case already exists reuse it
     for case in cases:
-        if case.title == "Sygesikring i almindelighed" and case.active_code == 'Active' and case.kle_number == '29.03.00':
+        if case.title == "Refusion af lægeregninger" and case.active_code == 'Active' and case.kle_number == '29.03.14':
             return case
 
     # Find the name of the person in one of the cases
@@ -167,22 +165,22 @@ def find_or_create_case(cpr: str, nova_access: NovaAccess, caseworker: Caseworke
     # Create a new case
     case = NovaCase(
         uuid=str(uuid.uuid4()),
-        title="Sygesikring i almindelighed",
+        title="Refusion af lægeregninger",
         case_date=datetime.now(),
         progress_state='Opstaaet',
         case_parties=[case_party],
-        kle_number="29.03.00",
+        kle_number='29.03.14',
         proceeding_facet="G01",
         sensitivity="Følsomme",
-        caseworker=caseworker,
-        responsible_department=department,
-        security_unit=department
+        caseworker=config.CASEWORKER,
+        responsible_department=config.DEPARTMENT,
+        security_unit=config.SECURITY_UNIT
     )
     nova_cases.add_case(case, nova_access)
     return case
 
 
-def attach_email_to_case(document_name: str, email: Email, case: NovaCase, caseworker: Caseworker, graph_access: GraphAccess, nova_access: NovaAccess):
+def attach_email_to_case(document_name: str, email: Email, case: NovaCase, graph_access: GraphAccess, nova_access: NovaAccess):
     """Upload the email file to Nova as a document.
 
     Args:
@@ -203,7 +201,7 @@ def attach_email_to_case(document_name: str, email: Email, case: NovaCase, casew
         document_date=email.received_time,
         approved=True,
         description="Automatisk journaliseret af robot.",
-        caseworker=caseworker
+        caseworker=config.CASEWORKER
     )
 
     nova_documents.attach_document_to_case(case.uuid, doc, nova_access)
@@ -217,8 +215,6 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
         case: The case to update the task on.
         nova_access: The nova access object used to authenticate.
     """
-    deadline = datetime.now() + timedelta(days=7)
-
     # Check if any tasks already exists on the case
     tasks = nova_tasks.get_tasks(case.uuid, nova_access)
 
@@ -230,22 +226,18 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             break
 
     if task:
-        # If a task already exists and its deadline is later than
-        # the new deadline, update it
-        if task.deadline.date() > deadline.date():
-            task.deadline = deadline
-            nova_tasks.update_task(task, case.uuid, nova_access)
+        # If a task already exists update it
+        task.deadline = datetime.now()
+        task.title = f"RNYT {task.title}"
+        nova_tasks.update_task(task, case.uuid, nova_access)
     else:
         # If no task is found create a new one.
-        # When creating tasks we don't need to provide the name and ident.
-        caseworker = Caseworker(uuid=config.CASE_WORKER_UUID, name=None, ident=None)
-
         task = Task(
             uuid=str(uuid.uuid4()),
-            title="Ny ansøgning",
-            caseworker=caseworker,
+            title="NYT",
+            caseworker=config.CASEWORKER,
             status_code='N',
-            deadline=deadline
+            deadline=datetime.now()
         )
         nova_tasks.attach_task_to_case(case.uuid, task, nova_access)
 
@@ -277,5 +269,5 @@ def send_status_mail(journal_count: int, receivers: list[str], orchestrator_conn
 if __name__ == '__main__':
     conn_string = os.getenv("OpenOrchestratorConnString")
     crypto_key = os.getenv("OpenOrchestratorKey")
-    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '')
+    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '{"receivers": []}')
     process([], oc)
