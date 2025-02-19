@@ -215,8 +215,6 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
         case: The case to update the task on.
         nova_access: The nova access object used to authenticate.
     """
-    deadline = datetime.now()
-
     # Check if any tasks already exists on the case
     tasks = nova_tasks.get_tasks(case.uuid, nova_access)
 
@@ -228,9 +226,8 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             break
 
     if task:
-        # If a task already exists and its deadline is later than
-        # the new deadline, update it
-        task.deadline = deadline
+        # If a task already exists update it
+        task.deadline = datetime.now()
         task.title = f"RNYT {task.title}"
         nova_tasks.update_task(task, case.uuid, nova_access)
     else:
@@ -240,7 +237,7 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
             title="NYT",
             caseworker=config.CASEWORKER,
             status_code='N',
-            deadline=deadline
+            deadline=datetime.now()
         )
         nova_tasks.attach_task_to_case(case.uuid, task, nova_access)
 
