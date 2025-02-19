@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release
 
+[2.0.0]: https://github.com/itk-dev-rpa/ITK-dev-shared-components/releases/tag/2.0.0
 [1.1.0]: https://github.com/itk-dev-rpa/ITK-dev-shared-components/releases/tag/1.1.0
 [1.0.1]: https://github.com/itk-dev-rpa/ITK-dev-shared-components/releases/tag/1.0.1
 [1.0.0]: https://github.com/itk-dev-rpa/ITK-dev-shared-components/releases/tag/1.0.0
