@@ -201,7 +201,9 @@ def attach_email_to_case(document_name: str, email: Email, case: NovaCase, graph
         document_date=email.received_time,
         approved=True,
         description="Automatisk journaliseret af robot.",
-        caseworker=config.CASEWORKER
+        caseworker=config.CASEWORKER,
+        category_name="Ansøgning",
+        category_uuid="0292ea5d-616c-44e8-9469-af7b7b546ec8"
     )
 
     nova_documents.attach_document_to_case(case.uuid, doc, nova_access)
