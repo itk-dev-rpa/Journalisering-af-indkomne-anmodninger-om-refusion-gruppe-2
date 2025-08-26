@@ -2,6 +2,7 @@
 
 from itk_dev_shared_components.kmd_nova.nova_objects import Caseworker, Department
 
+ROBOT_NAME = "Journalisering af indkomne anmodninger om refusion gruppe 2"
 # The number of times the robot retries on an error before terminating.
 MAX_RETRY_COUNT = 3
 
