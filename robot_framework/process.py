@@ -30,7 +30,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
         journalized_emails: The list of emails that has been journalized so far.
     """
     orchestrator_connection.log_trace("Running process.")
-    event_log.setup_logging(orchestrator_connection.get_constant("Event Log"))
+    event_log.setup_logging(orchestrator_connection.get_constant(config.EVENT_LOG_CONN))
 
     receivers = unpack_arguments(orchestrator_connection)
 
@@ -62,7 +62,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
         orchestrator_connection.set_queue_element_status(queue_element.id, QueueStatus.DONE)
 
     journalized_count = len(journalized_emails)
-    event_log.emit(config.ROBOT_NAME, "Emails journalized", journalized_count)
+    event_log.emit(orchestrator_connection.process_name, "Emails journaliseret", journalized_count)
     send_status_mail(journalized_count, receivers, orchestrator_connection)
 
 

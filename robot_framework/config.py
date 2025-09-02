@@ -18,6 +18,7 @@ SCREENSHOT_SENDER = "robot@friend.dk"
 ERROR_EMAIL = "Error Email"
 GRAPH_API = "Graph API"
 NOVA_API = "Nova API"
+EVENT_LOG_CONN = "Event Log"
 
 QUEUE_NAME = "Journalisering af indkomne anmodninger om refusion gruppe 2"
 
