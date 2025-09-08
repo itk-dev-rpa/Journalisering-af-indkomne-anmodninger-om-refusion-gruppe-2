@@ -18,6 +18,7 @@ from itk_dev_shared_components.kmd_nova.authentication import NovaAccess
 from itk_dev_shared_components.kmd_nova.nova_objects import NovaCase, Document, CaseParty, Task
 from itk_dev_shared_components.kmd_nova import nova_cases, nova_documents, nova_tasks
 from itk_dev_shared_components.kmd_nova import cpr as nova_cpr
+import itk_dev_event_log as event_log
 
 from robot_framework import config
 
@@ -29,6 +30,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
         journalized_emails: The list of emails that has been journalized so far.
     """
     orchestrator_connection.log_trace("Running process.")
+    event_log.setup_logging(orchestrator_connection.get_constant(config.EVENT_LOG_CONN).value)
 
     receivers = unpack_arguments(orchestrator_connection)
 
@@ -59,7 +61,9 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
 
         orchestrator_connection.set_queue_element_status(queue_element.id, QueueStatus.DONE)
 
-    send_status_mail(len(journalized_emails), receivers, orchestrator_connection)
+    journalized_count = len(journalized_emails)
+    event_log.emit(orchestrator_connection.process_name, "Emails journaliseret", journalized_count)
+    send_status_mail(journalized_count, receivers, orchestrator_connection)
 
 
 def unpack_arguments(orchestrator_connection: OrchestratorConnection) -> list[str]:
