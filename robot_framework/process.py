@@ -30,7 +30,7 @@ def process(journalized_emails: list[Email], orchestrator_connection: Orchestrat
         journalized_emails: The list of emails that has been journalized so far.
     """
     orchestrator_connection.log_trace("Running process.")
-    event_log.setup_logging(orchestrator_connection.get_constant(config.EVENT_LOG_CONN))
+    event_log.setup_logging(orchestrator_connection.get_constant(config.EVENT_LOG_CONN).value)
 
     receivers = unpack_arguments(orchestrator_connection)
 
