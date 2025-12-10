@@ -233,7 +233,7 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
 
     if task:
         # If a task already exists update it
-        task.deadline = datetime.now()
+        task.deadline = min(task.deadline, datetime.now())
         task.title = f"RNYT {task.title}"
         nova_tasks.update_task(task, case.uuid, nova_access)
     else:
