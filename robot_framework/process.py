@@ -4,7 +4,7 @@ import os
 import json
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import smtplib
 from email.message import EmailMessage
 
@@ -233,7 +233,7 @@ def update_or_create_task(case: NovaCase, nova_access: NovaAccess):
 
     if task:
         # If a task already exists update it
-        task.deadline = min(task.deadline, datetime.now())
+        task.deadline = min(task.deadline, datetime.now(timezone.utc))
         task.title = f"RNYT {task.title}"
         nova_tasks.update_task(task, case.uuid, nova_access)
     else:
