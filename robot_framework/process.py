@@ -275,5 +275,5 @@ def send_status_mail(journal_count: int, receivers: list[str], orchestrator_conn
 if __name__ == '__main__':
     conn_string = os.getenv("OpenOrchestratorConnString")
     crypto_key = os.getenv("OpenOrchestratorKey")
-    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '{"receivers": []}')
+    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '{"receivers": []}', "", "")
     process([], oc)
