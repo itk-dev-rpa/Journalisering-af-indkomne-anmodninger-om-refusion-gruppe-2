@@ -270,10 +270,3 @@ def send_status_mail(journal_count: int, receivers: list[str], orchestrator_conn
     with smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT) as smtp:
         smtp.starttls()
         smtp.send_message(msg)
-
-
-if __name__ == '__main__':
-    conn_string = os.getenv("OpenOrchestratorConnString")
-    crypto_key = os.getenv("OpenOrchestratorKey")
-    oc = OrchestratorConnection("Journalisering test", conn_string, crypto_key, '{"receivers": []}', "", "")
-    process([], oc)
